@@ -27,7 +27,7 @@ Możesz zainstalować wersję deweloperską z GitHub:
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("TwojeGitHub/CityOptimaR")
+devtools::install_github("OlaStepak/CityOptimaR")
 ```
 
 ## Szybki Start
