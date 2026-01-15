@@ -15,23 +15,23 @@ fuzzy_vikor(
 )
 }
 \arguments{
-\item{decision_mat}{Matrix ($m \times 3n$). Alternatives (rows) x Fuzzy Criteria (cols).}
+\item{decision_mat}{Matrix of TFN values (n x 3m format)}
 
-\item{criteria_types}{Character vector length $n$. "max" for benefit, "min" for cost.}
+\item{criteria_types}{Vector of "max"/"min" indicating benefit/cost criteria}
 
-\item{v}{Numeric (0-1). Weight for the strategy of maximum group utility.}
+\item{v}{Weight of the strategy of maximum group utility (default 0.5)}
 
-\item{weights}{(Optional) Numeric vector length $3n$ for fuzzy weights.}
+\item{weights}{Optional numeric vector of fuzzy weights (length = 3 * number of criteria)}
 
-\item{bwm_criteria}{(Optional) If weights are missing, BWM criteria names.}
+\item{bwm_criteria}{Optional criteria names for BWM weight calculation}
 
-\item{bwm_best}{(Optional) BWM best-to-others vector.}
+\item{bwm_best}{Optional Best-to-Others vector for BWM}
 
-\item{bwm_worst}{(Optional) BWM others-to-worst vector.}
+\item{bwm_worst}{Optional Others-to-Worst vector for BWM}
 }
 \value{
-An object of class `fuzzy_vikor_res` containing S, R, and Q indices.
+Data frame with columns: Alternative, Q, Ranking
 }
 \description{
-Implements Fuzzy VIKOR with BWM integration. Returns an object for plotting.
+Fuzzy VIKOR (VIseKriterijumska Optimizacija I Kompromisno Resenje)
 }

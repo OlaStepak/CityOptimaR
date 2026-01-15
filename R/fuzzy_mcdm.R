@@ -1,306 +1,351 @@
-#' @title Process Weights for Fuzzy MCDM
-#' @description Internal helper to handle either explicit fuzzy weights or BWM calculation.
+# ============================================================
+# Internal helpers
+# ============================================================
+
+#' @title Entropy-based Objective Weights (Fuzzy)
+#' @description Calculates objective fuzzy weights using Shannon entropy.
 #' @keywords internal
-.get_final_weights <- function(decision_mat, weights, bwm_criteria, bwm_best, bwm_worst) {
+.calculate_entropy_weights <- function(decision_mat) {
+
+  n_crit <- ncol(decision_mat) / 3
+  m <- nrow(decision_mat)
+
+  # Defuzzification (mean of TFN)
+  crisp_mat <- matrix(0, m, n_crit)
+  k <- 1
+  for (j in seq(1, ncol(decision_mat), 3)) {
+    crisp_mat[, k] <- rowMeans(decision_mat[, j:(j + 2)])
+    k <- k + 1
+  }
+
+  # Normalization
+  P <- crisp_mat / rowSums(crisp_mat)
+  P[P == 0] <- 1e-12
+
+  # Shannon entropy
+  entropy <- -colSums(P * log(P)) / log(m)
+  d <- 1 - entropy
+  w <- d / sum(d)
+
+  # Convert to fuzzy weights
+  rep(w, each = 3)
+}
+
+#' @title Process Weights for Fuzzy MCDM
+#' @description Priority: explicit weights -> BWM -> entropy
+#' @keywords internal
+.get_final_weights <- function(decision_mat,
+                               weights,
+                               bwm_criteria,
+                               bwm_best,
+                               bwm_worst) {
 
   n_crit <- ncol(decision_mat) / 3
 
+  # 1 Explicit fuzzy weights
   if (!missing(weights)) {
     if (length(weights) != ncol(decision_mat)) {
-      stop("Length of 'weights' must match the total columns in decision matrix (n * 3).")
+      stop("Length of 'weights' must be equal to 3 * number of criteria.")
     }
     return(weights)
   }
 
-  # Calculate using BWM if weights are missing
-  if (!missing(bwm_criteria) && !missing(bwm_best) && !missing(bwm_worst)) {
+  # 2 BWM
+  if (!missing(bwm_criteria) &&
+      !missing(bwm_best) &&
+      !missing(bwm_worst)) {
+
     message("Weights not provided. Calculating using BWM...")
-    bwm_res <- calculate_bwm_weights(bwm_criteria, bwm_best, bwm_worst)
+    bwm_res <- calculate_bwm_weights(
+      bwm_criteria,
+      bwm_best,
+      bwm_worst
+    )
 
     crisp_w <- bwm_res$criteriaWeights
 
     if (length(crisp_w) != n_crit) {
-      stop("Calculated BWM weights do not match the number of criteria in decision matrix.")
+      stop("BWM weights do not match number of criteria.")
     }
 
-    # Convert crisp BWM weights to Triangular Fuzzy Number (w, w, w)
-    fuzzy_weights <- rep(crisp_w, each = 3)
-    return(fuzzy_weights)
+    return(rep(crisp_w, each = 3))
   }
 
-  stop("You must provide either 'weights' vector OR 'bwm_criteria', 'bwm_best', and 'bwm_worst'.")
+  # 3 Entropy fallback
+  message("Weights not provided. Calculating objective weights using Shannon entropy...")
+  .calculate_entropy_weights(decision_mat)
 }
 
-#' Fuzzy TOPSIS with Vector Normalization
-#'
-#' @description Implements Fuzzy TOPSIS. Accepts either manual fuzzy weights or BWM parameters.
-#' @param decision_mat Matrix ($m \times 3n$). Alternatives (rows) x Fuzzy Criteria (cols).
-#' @param criteria_types Character vector length $n$. "max" for benefit, "min" for cost.
-#' @param weights (Optional) Numeric vector length $3n$ for fuzzy weights.
-#' @param bwm_criteria (Optional) If weights are missing, BWM criteria names.
-#' @param bwm_best (Optional) BWM best-to-others vector.
-#' @param bwm_worst (Optional) BWM others-to-worst vector.
-#' @return A data frame with R index and Ranking.
+# ============================================================
+# FUZZY TOPSIS
+# ============================================================
+
+#' @title Fuzzy TOPSIS Method
+#' @description Fuzzy TOPSIS (Technique for Order Preference by Similarity to Ideal Solution)
+#' @param decision_mat Matrix of TFN values (n x 3m format)
+#' @param criteria_types Vector of "max"/"min" indicating benefit/cost criteria
+#' @param weights Optional numeric vector of fuzzy weights (length = 3 * number of criteria)
+#' @param bwm_criteria Optional criteria names for BWM weight calculation
+#' @param bwm_best Optional Best-to-Others vector for BWM
+#' @param bwm_worst Optional Others-to-Worst vector for BWM
+#' @return Data frame with columns: Alternative, Score, Ranking
 #' @export
-fuzzy_topsis <- function(decision_mat, criteria_types, weights, bwm_criteria, bwm_best, bwm_worst) {
+fuzzy_topsis <- function(decision_mat,
+                         criteria_types,
+                         weights,
+                         bwm_criteria,
+                         bwm_best,
+                         bwm_worst) {
 
-  if (!is.matrix(decision_mat)) stop("'decision_mat' must be a matrix.")
 
-  # 1. Weight Handling
-  final_w <- .get_final_weights(decision_mat, weights, bwm_criteria, bwm_best, bwm_worst)
+  if (!is.matrix(decision_mat))
+    stop("'decision_mat' must be a matrix.")
 
-  # 2. Expand Criteria Types
+  final_w <- .get_final_weights(
+    decision_mat,
+    weights,
+    bwm_criteria,
+    bwm_best,
+    bwm_worst
+  )
+
   n_cols <- ncol(decision_mat)
-  fuzzy_cb <- character(n_cols)
-  k <- 1
-  for (j in seq(1, n_cols, 3)) {
-    fuzzy_cb[j:(j+2)] <- criteria_types[k]
-    k <- k + 1
-  }
 
-  # 3. Normalization
-  norm_mat <- matrix(nrow = nrow(decision_mat), ncol = n_cols)
-  denoms <- sqrt(apply(decision_mat^2, 2, sum))
+  fuzzy_cb <- rep(criteria_types, each = 3)
 
-  for (i in seq(1, n_cols, 3)) {
-    norm_mat[, i]   <- decision_mat[, i]   / denoms[i + 2]
-    norm_mat[, i+1] <- decision_mat[, i+1] / denoms[i + 1]
-    norm_mat[, i+2] <- decision_mat[, i+2] / denoms[i]
-  }
+  # Vector normalization
+  denoms <- sqrt(colSums(decision_mat^2))
+  norm_mat <- decision_mat / matrix(denoms, nrow(decision_mat), n_cols, TRUE)
 
-  # 4. Weighting
-  W_diag <- diag(final_w)
-  weighted_mat <- norm_mat %*% W_diag
+  weighted_mat <- norm_mat %*% diag(final_w)
 
-  # 5. Ideal Solutions
-  pos_ideal <- ifelse(fuzzy_cb == "max", apply(weighted_mat, 2, max), apply(weighted_mat, 2, min))
-  neg_ideal <- ifelse(fuzzy_cb == "min", apply(weighted_mat, 2, max), apply(weighted_mat, 2, min))
+  pos_ideal <- ifelse(
+    fuzzy_cb == "max",
+    apply(weighted_mat, 2, max),
+    apply(weighted_mat, 2, min)
+  )
 
-  # 6. Distances
-  dist_pos <- matrix(0, nrow(decision_mat), 3)
-  dist_neg <- matrix(0, nrow(decision_mat), 3)
+  neg_ideal <- ifelse(
+    fuzzy_cb == "min",
+    apply(weighted_mat, 2, max),
+    apply(weighted_mat, 2, min)
+  )
 
-  # Helper for distance calc
-  calc_fuzzy_dist <- function(mat, ideal) {
-    d <- (mat - matrix(ideal, nrow=nrow(mat), ncol=ncol(mat), byrow=TRUE))^2
-    res <- matrix(0, nrow(mat), 3)
-    res[,1] <- sqrt(apply(d[, seq(1, ncol(mat), 3)], 1, sum))
-    res[,2] <- sqrt(apply(d[, seq(2, ncol(mat), 3)], 1, sum))
-    res[,3] <- sqrt(apply(d[, seq(3, ncol(mat), 3)], 1, sum))
-    return(res)
-  }
+  d_pos <- (weighted_mat - matrix(pos_ideal, nrow(decision_mat), n_cols, TRUE))^2
+  d_neg <- (weighted_mat - matrix(neg_ideal, nrow(decision_mat), n_cols, TRUE))^2
 
-  # Note: The original logic summed squares then took sqrt for each fuzzy component.
-  # Replicating original logic strictly:
-  temp_d_pos <- (weighted_mat - matrix(pos_ideal, nrow=nrow(decision_mat), ncol=n_cols, byrow=TRUE))^2
-  temp_d_neg <- (weighted_mat - matrix(neg_ideal, nrow=nrow(decision_mat), ncol=n_cols, byrow=TRUE))^2
+  d_pos_f <- cbind(
+    sqrt(rowSums(d_pos[, seq(1, n_cols, 3)])),
+    sqrt(rowSums(d_pos[, seq(2, n_cols, 3)])),
+    sqrt(rowSums(d_pos[, seq(3, n_cols, 3)]))
+  )
 
-  d_pos_fuzzy <- matrix(0, nrow(decision_mat), 3)
-  d_neg_fuzzy <- matrix(0, nrow(decision_mat), 3)
+  d_neg_f <- cbind(
+    sqrt(rowSums(d_neg[, seq(1, n_cols, 3)])),
+    sqrt(rowSums(d_neg[, seq(2, n_cols, 3)])),
+    sqrt(rowSums(d_neg[, seq(3, n_cols, 3)]))
+  )
 
-  d_pos_fuzzy[,1] <- sqrt(apply(temp_d_pos[, seq(1, n_cols, 3), drop=FALSE], 1, sum))
-  d_pos_fuzzy[,2] <- sqrt(apply(temp_d_pos[, seq(2, n_cols, 3), drop=FALSE], 1, sum))
-  d_pos_fuzzy[,3] <- sqrt(apply(temp_d_pos[, seq(3, n_cols, 3), drop=FALSE], 1, sum))
+  denom <- d_pos_f + d_neg_f
 
-  d_neg_fuzzy[,1] <- sqrt(apply(temp_d_neg[, seq(1, n_cols, 3), drop=FALSE], 1, sum))
-  d_neg_fuzzy[,2] <- sqrt(apply(temp_d_neg[, seq(2, n_cols, 3), drop=FALSE], 1, sum))
-  d_neg_fuzzy[,3] <- sqrt(apply(temp_d_neg[, seq(3, n_cols, 3), drop=FALSE], 1, sum))
+  R_f <- cbind(
+    d_neg_f[,1] / denom[,3],
+    d_neg_f[,2] / denom[,2],
+    d_neg_f[,3] / denom[,1]
+  )
 
-  # 7. Closeness Coefficient (R)
-  # Original code swaps denominator indices [3] [2] [1] for fuzzy division rule
-  denom <- d_neg_fuzzy + d_pos_fuzzy
-  R_fuzzy <- matrix(0, nrow(decision_mat), 3)
-  R_fuzzy[,1] <- d_neg_fuzzy[,1] / denom[,3]
-  R_fuzzy[,2] <- d_neg_fuzzy[,2] / denom[,2]
-  R_fuzzy[,3] <- d_neg_fuzzy[,3] / denom[,1]
+  score <- (R_f[,1] + 4 * R_f[,2] + R_f[,3]) / 6
 
-  def_R <- (R_fuzzy[,1] + 4*R_fuzzy[,2] + R_fuzzy[,3]) / 6
-
-  return(data.frame(
-    Alternative = 1:nrow(decision_mat),
-    Score = def_R,
-    Ranking = rank(-def_R, ties.method = "first")
-  ))
+  data.frame(
+    Alternative = seq_len(nrow(decision_mat)),
+    Score = score,
+    Ranking = rank(-score, ties.method = "first")
+  )
 }
 
-#' Fuzzy VIKOR Method
-#'
-#' @description Implements Fuzzy VIKOR with BWM integration. Returns an object for plotting.
-#' @inheritParams fuzzy_topsis
-#' @param v Numeric (0-1). Weight for the strategy of maximum group utility.
-#' @return An object of class `fuzzy_vikor_res` containing S, R, and Q indices.
+# ============================================================
+# FUZZY VIKOR
+# ============================================================
+
+#' @title Fuzzy VIKOR Method
+#' @description Fuzzy VIKOR (VIseKriterijumska Optimizacija I Kompromisno Resenje)
+#' @param decision_mat Matrix of TFN values (n x 3m format)
+#' @param criteria_types Vector of "max"/"min" indicating benefit/cost criteria
+#' @param v Weight of the strategy of maximum group utility (default 0.5)
+#' @param weights Optional numeric vector of fuzzy weights (length = 3 * number of criteria)
+#' @param bwm_criteria Optional criteria names for BWM weight calculation
+#' @param bwm_best Optional Best-to-Others vector for BWM
+#' @param bwm_worst Optional Others-to-Worst vector for BWM
+#' @return Data frame with columns: Alternative, Q, Ranking
 #' @export
-fuzzy_vikor <- function(decision_mat, criteria_types, v = 0.5, weights, bwm_criteria, bwm_best, bwm_worst) {
+fuzzy_vikor <- function(decision_mat,
+                        criteria_types,
+                        v = 0.5,
+                        weights,
+                        bwm_criteria,
+                        bwm_best,
+                        bwm_worst) {
 
-  if (!is.matrix(decision_mat)) stop("'decision_mat' must be a matrix.")
+  if (!is.matrix(decision_mat))
+    stop("'decision_mat' must be a matrix.")
 
-  final_w <- .get_final_weights(decision_mat, weights, bwm_criteria, bwm_best, bwm_worst)
+  final_w <- .get_final_weights(
+    decision_mat,
+    weights,
+    bwm_criteria,
+    bwm_best,
+    bwm_worst
+  )
 
   n_cols <- ncol(decision_mat)
-  fuzzy_cb <- character(n_cols)
-  k <- 1
-  for (j in seq(1, n_cols, 3)) {
-    fuzzy_cb[j:(j+2)] <- criteria_types[k]
-    k <- k + 1
-  }
+  fuzzy_cb <- rep(criteria_types, each = 3)
 
-  # 1. Ideal Solutions
-  pos_ideal <- ifelse(fuzzy_cb == "max", apply(decision_mat, 2, max), apply(decision_mat, 2, min))
-  neg_ideal <- ifelse(fuzzy_cb == "min", apply(decision_mat, 2, max), apply(decision_mat, 2, min))
+  pos <- ifelse(fuzzy_cb == "max",
+                apply(decision_mat, 2, max),
+                apply(decision_mat, 2, min))
 
-  # 2. Linear Normalization
-  d_mat <- matrix(0, nrow = nrow(decision_mat), ncol = n_cols)
+  neg <- ifelse(fuzzy_cb == "min",
+                apply(decision_mat, 2, max),
+                apply(decision_mat, 2, min))
 
-  for (i in seq(1, n_cols, 3)) {
-    if (fuzzy_cb[i] == "max") {
-      denom <- pos_ideal[i+2] - neg_ideal[i]
-      if(denom == 0) denom <- 1e-9
-      d_mat[, i]   <- (pos_ideal[i]   - decision_mat[, i+2]) / denom
-      d_mat[, i+1] <- (pos_ideal[i+1] - decision_mat[, i+1]) / denom
-      d_mat[, i+2] <- (pos_ideal[i+2] - decision_mat[, i])   / denom
-    } else {
-      denom <- neg_ideal[i+2] - pos_ideal[i]
-      if(denom == 0) denom <- 1e-9
-      d_mat[, i]   <- (decision_mat[, i]   - pos_ideal[i+2]) / denom
-      d_mat[, i+1] <- (decision_mat[, i+1] - pos_ideal[i+1]) / denom
-      d_mat[, i+2] <- (decision_mat[, i+2] - pos_ideal[i])   / denom
-    }
-  }
+  D <- abs(decision_mat - matrix(pos, nrow(decision_mat), n_cols, TRUE)) /
+    abs(matrix(pos - neg, nrow(decision_mat), n_cols, TRUE))
 
-  W_diag <- diag(final_w)
-  weighted_d <- d_mat %*% W_diag
+  WD <- D %*% diag(final_w)
 
-  # 3. S and R Values
-  S_fuzzy <- matrix(0, nrow(decision_mat), 3)
-  R_fuzzy <- matrix(0, nrow(decision_mat), 3)
+  S <- cbind(
+    rowSums(WD[, seq(1, n_cols, 3)]),
+    rowSums(WD[, seq(2, n_cols, 3)]),
+    rowSums(WD[, seq(3, n_cols, 3)])
+  )
 
-  S_fuzzy[,1] <- apply(weighted_d[, seq(1, n_cols, 3), drop=FALSE], 1, sum)
-  S_fuzzy[,2] <- apply(weighted_d[, seq(2, n_cols, 3), drop=FALSE], 1, sum)
-  S_fuzzy[,3] <- apply(weighted_d[, seq(3, n_cols, 3), drop=FALSE], 1, sum)
+  R <- cbind(
+    apply(WD[, seq(1, n_cols, 3)], 1, max),
+    apply(WD[, seq(2, n_cols, 3)], 1, max),
+    apply(WD[, seq(3, n_cols, 3)], 1, max)
+  )
 
-  R_fuzzy[,1] <- apply(weighted_d[, seq(1, n_cols, 3), drop=FALSE], 1, max)
-  R_fuzzy[,2] <- apply(weighted_d[, seq(2, n_cols, 3), drop=FALSE], 1, max)
-  R_fuzzy[,3] <- apply(weighted_d[, seq(3, n_cols, 3), drop=FALSE], 1, max)
+  S_star <- min(S[,1]); S_minus <- max(S[,3])
+  R_star <- min(R[,1]); R_minus <- max(R[,3])
 
-  # Defuzzify S and R for Q calculation inputs
-  # Note: Q calculation in fuzzy VIKOR is complex.
-  # Using the crisp conversion of S and R to find Min/Max for formula.
+  Q <- v * (S - S_star)/(S_minus - S_star) +
+    (1 - v) * (R - R_star)/(R_minus - R_star)
 
-  # 4. Q Index
-  # Q_i = v * (S_i - S*) / (S- - S*) + (1-v) * (R_i - R*) / (R- - R*)
+  def_Q <- rowMeans(Q)
 
-  # We calculate fuzzy Q
-  s_star <- min(S_fuzzy[,1])
-  s_minus <- max(S_fuzzy[,3])
-  r_star <- min(R_fuzzy[,1])
-  r_minus <- max(R_fuzzy[,3])
+  # Defuzzyfikacja S i R (dodajemy do wyniku)
+  def_S <- rowMeans(S)
+  def_R <- rowMeans(R)
 
-  denom_s <- s_minus - s_star
-  denom_r <- r_minus - r_star
-
-  if (denom_s == 0) denom_s <- 1
-  if (denom_r == 0) denom_r <- 1
-
-  Q_fuzzy <- matrix(0, nrow(decision_mat), 3)
-
-  # Q1 part (based on S)
-  term1 <- (S_fuzzy - s_star) / denom_s
-  # Q2 part (based on R)
-  term2 <- (R_fuzzy - r_star) / denom_r
-
-  Q_fuzzy <- v * term1 + (1 - v) * term2
-
-  # Defuzzification
-  def_S <- (S_fuzzy[,1] + 2*S_fuzzy[,2] + S_fuzzy[,3]) / 4
-  def_R <- (R_fuzzy[,1] + 2*R_fuzzy[,2] + R_fuzzy[,3]) / 4
-  def_Q <- (Q_fuzzy[,1] + 2*Q_fuzzy[,2] + Q_fuzzy[,3]) / 4
-
-  result_df <- data.frame(
-    Alternative = 1:nrow(decision_mat),
+  # Tworzymy ramkę danych z wynikami
+  results_df <- data.frame(
+    Alternative = seq_len(nrow(decision_mat)),
     Def_S = def_S,
     Def_R = def_R,
-    Def_Q = def_Q,
+    Q = def_Q,
     Ranking = rank(def_Q, ties.method = "first")
   )
 
-  output <- list(
-    results = result_df,
-    details = list(S_fuzzy = S_fuzzy, R_fuzzy = R_fuzzy, Q_fuzzy = Q_fuzzy),
-    params = list(v = v)
+  # Tworzymy obiekt z klasą
+  result <- list(
+    results = results_df,
+    method = "VIKOR"
   )
 
-  class(output) <- "fuzzy_vikor_res"
-  return(output)
+  class(result) <- "fuzzy_vikor_res"
+  return(result)
 }
 
-#' Fuzzy WASPAS Method
-#'
-#' @description Implements Fuzzy WASPAS with BWM integration.
-#' @inheritParams fuzzy_topsis
-#' @param lambda Numeric (0-1). WSM vs WPM importance.
+# ============================================================
+# FUZZY WASPAS
+# ============================================================
+
+#' @title Fuzzy WASPAS Method
+#' @description Fuzzy WASPAS (Weighted Aggregated Sum Product Assessment)
+#' @param decision_mat Matrix of TFN values (n x 3m)
+#' @param criteria_types Vector of "max"/"min"
+#' @param weights Optional numeric vector of weights (length = number of criteria)
+#' @param lambda Weighting coefficient (default 0.5)
+#' @param bwm_criteria Optional criteria names for BWM
+#' @param bwm_best Optional Best-to-Others vector
+#' @param bwm_worst Optional Others-to-Worst vector
+#' @return Data frame with WASPAS scores and ranking
 #' @export
-fuzzy_waspas <- function(decision_mat, criteria_types, lambda = 0.5, weights, bwm_criteria, bwm_best, bwm_worst) {
+fuzzy_waspas <- function(decision_mat,
+                         criteria_types,
+                         weights = NULL,
+                         lambda = 0.5,
+                         bwm_criteria = NULL,
+                         bwm_best = NULL,
+                         bwm_worst = NULL) {
 
   if (!is.matrix(decision_mat)) stop("'decision_mat' must be a matrix.")
-  final_w <- .get_final_weights(decision_mat, weights, bwm_criteria, bwm_best, bwm_worst)
 
-  n_cols <- ncol(decision_mat)
-  fuzzy_cb <- character(n_cols)
-  k <- 1
-  for (j in seq(1, n_cols, 3)) {
-    fuzzy_cb[j:(j+2)] <- criteria_types[k]
-    k <- k + 1
+  n_alt <- nrow(decision_mat)
+  n_crit <- length(criteria_types)
+
+  # --- Defuzzification ---
+  defuzz <- matrix(NA, n_alt, n_crit)
+  for (j in seq_len(n_crit)) {
+    cols <- ((j - 1) * 3 + 1):(j * 3)
+    defuzz[, j] <- rowMeans(decision_mat[, cols])
   }
 
-  # 1. Normalization
-  norm_base <- ifelse(fuzzy_cb == "max", apply(decision_mat, 2, max), apply(decision_mat, 2, min))
-  N_mat <- matrix(0, nrow(decision_mat), n_cols)
+  # --- Weight handling ---
+  if (is.null(weights)) {
+    if (!is.null(bwm_criteria) &&
+        !is.null(bwm_best) &&
+        !is.null(bwm_worst)) {
 
-  for (j in seq(1, n_cols, 3)) {
-    if (fuzzy_cb[j] == "max") {
-      N_mat[, j]   <- decision_mat[, j]   / norm_base[j+2]
-      N_mat[, j+1] <- decision_mat[, j+1] / norm_base[j+2]
-      N_mat[, j+2] <- decision_mat[, j+2] / norm_base[j+2]
+      message("Weights not provided. Calculating using BWM...")
+      bwm <- calculate_bwm_weights(
+        criteria_names = bwm_criteria,
+        best_to_others = bwm_best,
+        others_to_worst = bwm_worst
+      )
+      w <- bwm$criteriaWeights
+
     } else {
-      N_mat[, j]   <- norm_base[j] / decision_mat[, j+2]
-      N_mat[, j+1] <- norm_base[j] / decision_mat[, j+1]
-      N_mat[, j+2] <- norm_base[j] / decision_mat[, j]
+      message("Weights not provided. Calculating objective weights using Shannon entropy...")
+      w <- {
+        n <- ncol(defuzz)
+        m <- nrow(defuzz)
+        P <- defuzz / rowSums(defuzz)
+        P[P == 0] <- 1e-12
+        e <- -colSums(P * log(P)) / log(m)
+        d <- 1 - e
+        d / sum(d)
+      }
+    }
+  } else {
+    w <- weights
+  }
+
+  w <- w / sum(w)
+
+  # --- Normalization ---
+  norm <- matrix(NA, n_alt, n_crit)
+  for (j in seq_len(n_crit)) {
+    if (criteria_types[j] == "max") {
+      norm[, j] <- defuzz[, j] / max(defuzz[, j])
+    } else {
+      norm[, j] <- min(defuzz[, j]) / defuzz[, j]
     }
   }
 
-  # 2. WSM (Weighted Sum)
-  W_diag <- diag(final_w)
-  nw_sum <- N_mat %*% W_diag
-  WSM_fuzzy <- matrix(0, nrow(decision_mat), 3)
-  WSM_fuzzy[,1] <- apply(nw_sum[, seq(1, n_cols, 3), drop=FALSE], 1, sum)
-  WSM_fuzzy[,2] <- apply(nw_sum[, seq(2, n_cols, 3), drop=FALSE], 1, sum)
-  WSM_fuzzy[,3] <- apply(nw_sum[, seq(3, n_cols, 3), drop=FALSE], 1, sum)
+  # --- Weighted Sum Model (WSM) ---
+  wsm <- norm %*% w
 
-  # 3. WPM (Weighted Product)
-  nw_prod <- matrix(0, nrow(decision_mat), n_cols)
-  for (j in seq(1, n_cols, 3)) {
-    # Fuzzy Power Logic: (l,m,u)^w -> (l^w, m^w, u^w) roughly for positive
-    # Code provided used permutation of weights. Sticking to provided logic:
-    nw_prod[, j]   <- N_mat[, j]   ^ final_w[j+2]
-    nw_prod[, j+1] <- N_mat[, j+1] ^ final_w[j+1]
-    nw_prod[, j+2] <- N_mat[, j+2] ^ final_w[j]
-  }
-  WPM_fuzzy <- matrix(0, nrow(decision_mat), 3)
-  WPM_fuzzy[,1] <- apply(nw_prod[, seq(1, n_cols, 3), drop=FALSE], 1, prod)
-  WPM_fuzzy[,2] <- apply(nw_prod[, seq(2, n_cols, 3), drop=FALSE], 1, prod)
-  WPM_fuzzy[,3] <- apply(nw_prod[, seq(3, n_cols, 3), drop=FALSE], 1, prod)
+  # --- Weighted Product Model (WPM) ---
+  wpm <- apply(norm, 1, function(x) prod(x ^ w))
 
-  # 4. Q Index
-  def_wsm <- rowSums(WSM_fuzzy) / 3
-  def_wpm <- rowSums(WPM_fuzzy) / 3
-
-  Q_val <- lambda * def_wsm + (1 - lambda) * def_wpm
+  # --- WASPAS score ---
+  Q <- lambda * wsm + (1 - lambda) * wpm
+  ranking <- rank(-Q, ties.method = "min")
 
   data.frame(
-    Alternative = 1:nrow(decision_mat),
-    WSM = def_wsm,
-    WPM = def_wpm,
-    W_Index = Q_val,
-    Ranking = rank(-Q_val, ties.method = "first")
+    Alternative = seq_len(n_alt),
+    Score = as.numeric(Q),
+    Ranking = ranking
   )
 }

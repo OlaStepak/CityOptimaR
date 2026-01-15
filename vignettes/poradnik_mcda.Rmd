@@ -1,0 +1,118 @@
+---
+title: "Pełny proces analizy: Od danych do rankingu"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Pełny proces analizy: Od danych do rankingu}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+```{r setup}
+library(CityOptimaR)
+```
+
+## 1. Wczytanie danych
+
+Korzystamy z wbudowanego w pakiet zbioru danych o miastach europejskich.
+```{r}
+data("city_data")
+head(city_data)
+```
+
+## 2. Definicja modelu (Składnia)
+
+Definiujemy, które kolumny z ramki danych wchodzą w skład poszczególnych kryteriów.
+```{r}
+skladnia_modelu <- "Cost =~ Cost_Living + Housing_Price; 
+                    Quality =~ Job_Market + Safety + Healthcare; 
+                    Environment =~ Air_Quality + Green_Space + Transport"
+```
+
+## 3. Przetwarzanie i Rozmywanie danych
+
+Funkcja `prepare_mcda_data` automatycznie skaluje dane do przedziału 1-9 i zamienia je na liczby rozmyte (TFN).
+```{r}
+macierz_rozmyta <- prepare_mcda_data(
+  data = city_data,
+  syntax = skladnia_modelu,
+  alternative_column = "City"
+)
+
+# Podgląd fragmentu macierzy
+print(macierz_rozmyta[1:5, 1:6])
+```
+## 4. Wyznaczanie wag metodą BWM (Best-Worst Method)
+
+Zamiast zgadywać wagi, pytamy eksperta. Zakładamy, że:
+
+- Najlepsze kryterium: Quality (jakość życia)
+- Najgorsze kryterium: Cost (koszty)
+```{r}
+# Kolejność kryteriów w macierzy: Cost, Quality, Environment
+# Preferencja NAJLEPSZEGO (Quality) nad innymi (1-9):
+# Quality/Cost=8, Quality/Quality=1, Quality/Environment=3
+bwm_best <- c(8, 1, 3)
+
+# Preferencja innych nad NAJGORSZYM (Cost) (1-9):
+# Cost/Cost=1, Quality/Cost=8, Environment/Cost=4
+bwm_worst <- c(1, 8, 4)
+```
+
+## 5. Analiza Decyzyjna (VIKOR, TOPSIS, WASPAS)
+
+Uruchamiamy metody. Pakiet automatycznie policzy wagi z parametrów BWM. Definiujemy typy kryteriów: min (koszt) lub max (korzyść).
+```{r}
+typy <- c("min", "max", "max")
+
+# Fuzzy VIKOR
+wynik_vikor <- fuzzy_vikor(
+  decision_mat = macierz_rozmyta,
+  criteria_types = typy,
+  bwm_criteria = c("Cost", "Quality", "Environment"),
+  bwm_best = bwm_best,
+  bwm_worst = bwm_worst
+)
+
+# Fuzzy TOPSIS
+wynik_topsis <- fuzzy_topsis(
+  decision_mat = macierz_rozmyta,
+  criteria_types = typy,
+  bwm_criteria = c("Cost", "Quality", "Environment"),
+  bwm_best = bwm_best,
+  bwm_worst = bwm_worst
+)
+
+# Wyniki tabelaryczne
+print(wynik_vikor$results)
+print(wynik_topsis)
+```
+## 6. Wizualizacja (Mapy Decyzyjne)
+
+Generujemy mapy strategiczne.
+```{r, fig.width=7, fig.height=5}
+plot(wynik_vikor)
+```
+
+## 7. Meta-Ranking (Konsensus)
+
+Agregujemy wyniki wszystkich trzech metod (w tym WASPAS), aby uzyskać ostateczną decyzję.
+```{r}
+meta_wynik <- rozmyty_meta_ranking(
+  macierz_decyzyjna = macierz_rozmyta,
+  typy_kryteriow = typy,
+  bwm_najlepsze = bwm_best,
+  bwm_najgorsze = bwm_worst
+)
+
+# Tabela porównawcza
+knitr::kable(meta_wynik$porownanie, caption = "Porównanie rankingów i Konsensus")
+
+# Korelacje między metodami
+knitr::kable(round(meta_wynik$korelacje, 2), caption = "Macierz korelacji Spearmana")
+```
+

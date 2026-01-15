@@ -1,0 +1,109 @@
+---
+output: github_document
+---
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# CityOptimaR
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+**CityOptimaR** to kompleksowe narzędzie do Wielokryterialnej Analizy Decyzyjnej (MCDA) w środowisku rozmytym. Umożliwia pełną ścieżkę analityczną: od surowych danych, przez wyznaczanie wag metodą BWM (Best-Worst Method), aż po rankingi metodami TOPSIS, VIKOR i WASPAS.
+
+## Funkcje pakietu
+
+-  **Przygotowanie danych rozmytych** z surowych danych numerycznych
+-  **Best-Worst Method (BWM)** - wyznaczanie wag kryteriów
+-  **3 metody MCDA:**
+  - Fuzzy TOPSIS
+  - Fuzzy VIKOR
+  - Fuzzy WASPAS
+-  **Wizualizacje** - mapy strategiczne i decyzyjne
+-  **Meta-ranking** - konsensus z wielu metod
+
+## Instalacja
+
+Możesz zainstalować wersję deweloperską z GitHub:
+```r
+# install.packages("devtools")
+devtools::install_github("TwojeGitHub/CityOptimaR")
+```
+
+## Szybki Start
+
+Oto podstawowy przykład użycia pakietu z wbudowanymi danymi o miastach europejskich.
+```{r example}
+library(CityOptimaR)
+
+# 1. Wczytaj dane
+data("city_data")
+head(city_data, 3)
+
+# 2. Przygotuj macierz rozmytą
+skladnia <- "Cost =~ Cost_Living + Housing_Price; 
+             Quality =~ Job_Market + Safety + Healthcare; 
+             Environment =~ Air_Quality + Green_Space + Transport"
+
+macierz <- prepare_mcda_data(
+  city_data, 
+  skladnia, 
+  alternative_column = "City"
+)
+
+# 3. Oblicz ranking metodą Fuzzy VIKOR z wagami BWM
+wynik <- fuzzy_vikor(
+  macierz, 
+  criteria_types = c("min", "max", "max"),
+  bwm_criteria = c("Cost", "Quality", "Environment"),
+  bwm_best = c(8, 1, 3),      # Quality najważniejsze
+  bwm_worst = c(1, 8, 4)      # Cost najmniej ważne
+)
+
+# 4. Wyświetl wynik
+print(wynik$results[1:5, ])
+```
+
+## Wizualizacja
+
+Pakiet oferuje profesjonalne mapy decyzyjne:
+```{r visualization, fig.width=7, fig.height=5}
+# Mapa strategiczna VIKOR
+plot(wynik)
+```
+
+## Meta-ranking
+
+Agreguj wyniki z wielu metod, aby uzyskać robust ranking konsensusu:
+```{r meta}
+meta <- rozmyty_meta_ranking(
+  macierz,
+  typy_kryteriow = c("min", "max", "max"),
+  bwm_najlepsze = c(8, 1, 3),
+  bwm_najgorsze = c(1, 8, 4)
+)
+
+# Pokaż Top 5 miast
+head(meta$porownanie[order(meta$porownanie$Meta_Agregacja), ], 5)
+```
+
+## Dokumentacja
+
+Więcej informacji i szczegółowych przykładów znajdziesz w:
+
+- Vignette: `vignette("poradnik_mcda", package = "CityOptimaR")`
+- Pomoc: `?fuzzy_vikor`, `?fuzzy_topsis`, `?rozmyty_meta_ranking`
+
+## Autorzy
+
+- Aleksandra Stępak
+
+## Licencja
+
+GPL-3

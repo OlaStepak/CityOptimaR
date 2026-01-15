@@ -7,28 +7,31 @@
 fuzzy_waspas(
   decision_mat,
   criteria_types,
+  weights = NULL,
   lambda = 0.5,
-  weights,
-  bwm_criteria,
-  bwm_best,
-  bwm_worst
+  bwm_criteria = NULL,
+  bwm_best = NULL,
+  bwm_worst = NULL
 )
 }
 \arguments{
-\item{decision_mat}{Matrix ($m \times 3n$). Alternatives (rows) x Fuzzy Criteria (cols).}
+\item{decision_mat}{Matrix of TFN values (n x 3m)}
 
-\item{criteria_types}{Character vector length $n$. "max" for benefit, "min" for cost.}
+\item{criteria_types}{Vector of "max"/"min"}
 
-\item{lambda}{Numeric (0-1). WSM vs WPM importance.}
+\item{weights}{Optional numeric vector of weights (length = number of criteria)}
 
-\item{weights}{(Optional) Numeric vector length $3n$ for fuzzy weights.}
+\item{lambda}{Weighting coefficient (default 0.5)}
 
-\item{bwm_criteria}{(Optional) If weights are missing, BWM criteria names.}
+\item{bwm_criteria}{Optional criteria names for BWM}
 
-\item{bwm_best}{(Optional) BWM best-to-others vector.}
+\item{bwm_best}{Optional Best-to-Others vector}
 
-\item{bwm_worst}{(Optional) BWM others-to-worst vector.}
+\item{bwm_worst}{Optional Others-to-Worst vector}
+}
+\value{
+Data frame with WASPAS scores and ranking
 }
 \description{
-Implements Fuzzy WASPAS with BWM integration.
+Fuzzy WASPAS (Weighted Aggregated Sum Product Assessment)
 }

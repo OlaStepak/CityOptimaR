@@ -2,7 +2,7 @@
 % Please edit documentation in R/fuzzy_mcdm.R
 \name{fuzzy_topsis}
 \alias{fuzzy_topsis}
-\title{Fuzzy TOPSIS with Vector Normalization}
+\title{Fuzzy TOPSIS Method}
 \usage{
 fuzzy_topsis(
   decision_mat,
@@ -14,21 +14,21 @@ fuzzy_topsis(
 )
 }
 \arguments{
-\item{decision_mat}{Matrix ($m \times 3n$). Alternatives (rows) x Fuzzy Criteria (cols).}
+\item{decision_mat}{Matrix of TFN values (n x 3m format)}
 
-\item{criteria_types}{Character vector length $n$. "max" for benefit, "min" for cost.}
+\item{criteria_types}{Vector of "max"/"min" indicating benefit/cost criteria}
 
-\item{weights}{(Optional) Numeric vector length $3n$ for fuzzy weights.}
+\item{weights}{Optional numeric vector of fuzzy weights (length = 3 * number of criteria)}
 
-\item{bwm_criteria}{(Optional) If weights are missing, BWM criteria names.}
+\item{bwm_criteria}{Optional criteria names for BWM weight calculation}
 
-\item{bwm_best}{(Optional) BWM best-to-others vector.}
+\item{bwm_best}{Optional Best-to-Others vector for BWM}
 
-\item{bwm_worst}{(Optional) BWM others-to-worst vector.}
+\item{bwm_worst}{Optional Others-to-Worst vector for BWM}
 }
 \value{
-A data frame with R index and Ranking.
+Data frame with columns: Alternative, Score, Ranking
 }
 \description{
-Implements Fuzzy TOPSIS. Accepts either manual fuzzy weights or BWM parameters.
+Fuzzy TOPSIS (Technique for Order Preference by Similarity to Ideal Solution)
 }

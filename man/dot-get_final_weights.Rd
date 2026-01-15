@@ -7,6 +7,6 @@
 .get_final_weights(decision_mat, weights, bwm_criteria, bwm_best, bwm_worst)
 }
 \description{
-Internal helper to handle either explicit fuzzy weights or BWM calculation.
+Priority: explicit weights -> BWM -> entropy
 }
 \keyword{internal}
