@@ -80,3 +80,59 @@ plot.fuzzy_vikor_res <- function(x, ...) {
 
 # Fix for R CMD check global variable warnings
 utils::globalVariables(c("Def_S", "Def_R", "PlotSize", "Group", "Label", "Alternative"))
+
+# ============================================================
+# MULTIMOORA & PROMETHEE PLOTS
+# ============================================================
+
+#' Mapa Strategiczna MULTIMOORA
+#' @export
+plot.rozmyty_multimoora_wynik <- function(x, ...) {
+  df <- x$results
+  df$Strength <- (max(df$Final_Ranking) - df$Final_Ranking + 1)^2
+
+  ggplot2::ggplot(df, ggplot2::aes(x = RS_Score, y = RP_Score)) +
+    ggplot2::annotate("rect",
+                      xmin = median(df$RS_Score),
+                      xmax = Inf,
+                      ymin = -Inf,
+                      ymax = median(df$RP_Score),
+                      fill = "#E8F5E9",
+                      alpha = 0.5) +
+    ggplot2::geom_point(ggplot2::aes(size = Strength,
+                                     fill = as.factor(Final_Ranking)),
+                        shape = 21,
+                        color = "black") +
+    ggrepel::geom_text_repel(ggplot2::aes(label = paste0("Alt ", Alternative))) +
+    ggplot2::labs(title = "Mapa MULTIMOORA",
+                  x = "System Ilorazowy (Max)",
+                  y = "Punkt Odniesienia (Min)",
+                  fill = "Ranking",
+                  size = "Siła") +
+    ggplot2::theme_minimal()
+}
+#' Wykres Przepływów PROMETHEE II
+#' @export
+plot.rozmyty_promethee_wynik <- function(x, ...) {
+  df <- x$results
+  df <- df[order(df$Phi_Net), ]
+  df$Alt <- factor(paste0("Alt ", df$Alternative),
+                   levels = paste0("Alt ", df$Alternative))
+
+  ggplot2::ggplot(df, ggplot2::aes(x = Alt, y = Phi_Net)) +
+    ggplot2::geom_segment(ggplot2::aes(xend = Alt, y = 0, yend = Phi_Net),
+                          color = "grey") +
+    ggplot2::geom_point(ggplot2::aes(fill = Phi_Net),
+                        size = 5,
+                        shape = 21) +
+    ggplot2::coord_flip()
+    ggplot2::scale_fill_gradient2(low = "red",
+                                  mid = "white",
+                                  high = "green",
+                                  midpoint = 0) +
+    ggplot2::labs(title = "PROMETHEE II Ranking",
+                  y = "Przepływ Netto (Phi)",
+                  x = "Alternatywa",
+                  fill = "Phi Net") +
+    ggplot2::theme_minimal()
+}

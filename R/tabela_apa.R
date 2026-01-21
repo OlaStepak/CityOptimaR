@@ -83,3 +83,23 @@ zapisz_tabele <- function(tabela, sciezka) {
   flextable::save_as_docx(tabela, path = sciezka)
   message("Tabela zapisana w: ", sciezka)
 }
+# ============================================================
+# MULTIMOORA & PROMETHEE APA TABLES
+# ============================================================
+
+#' @export
+tabela_apa.rozmyty_multimoora_wynik <- function(x, tytul = "Wyniki MULTIMOORA") {
+  df <- x$results[, c("Alternative", "RS_Ranking", "RP_Ranking", "FMF_Ranking", "Final_Ranking")]
+  names(df) <- c("Alternatywa", "Rank Ratio", "Rank Ref.Point", "Rank Mult.Form", "MULTIMOORA")
+
+  rempsyc::nice_table(df, title = c("Tabela", tytul))
+}
+
+#' @export
+tabela_apa.rozmyty_promethee_wynik <- function(x, tytul = "Wyniki PROMETHEE II") {
+  df <- x$results
+  df$Phi_Net <- round(df$Phi_Net, 3)
+  names(df) <- c("Alternatywa", "Phi+ (Leaving)", "Phi- (Entering)", "Phi Net", "Ranking")
+
+  rempsyc::nice_table(df, title = c("Tabela", tytul))
+}

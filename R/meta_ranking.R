@@ -1,178 +1,161 @@
+# ============================================================
+# META-RANKING (5 METHODS)
+# ============================================================
+
 #' @title Teoria Dominacji dla Rankingu
-#' @description
-#' Funkcja pomocnicza. Wyznacza ranking konsensusu na podstawie reguły większości.
-#' Iteracyjnie sprawdza, która alternatywa najczęściej wygrywa na danej pozycji.
-#'
-#' @param r1 Wektor numeryczny rang metody 1.
-#' @param r2 Wektor numeryczny rang metody 2.
-#' @param r3 Wektor numeryczny rang metody 3.
-#' @return Wektor numeryczny z finalnym rankingiem.
+#' @description Funkcja pomocnicza do konsensusu.
 #' @keywords internal
-.oblicz_ranking_dominacji <- function(r1, r2, r3) {
-  n <- length(r1)
-  finalny_ranking <- rep(0, n)
+calculate_dominance_ranking <- function(rank_mat) {
+  n <- nrow(rank_mat)
+  final_rank <- rep(0, n)
+  available <- rep(TRUE, n)
 
-  # Macierz rang (wiersze = alternatywy, kolumny = metody)
-  macierz_rang <- cbind(r1, r2, r3)
+  for (current_position in 1:n) {
+    current_mat <- rank_mat
+    current_mat[!available, ] <- Inf
 
-  # Maska dostepnych alternatyw (na początku wszystkie są dostępne)
-  dostepne <- rep(TRUE, n)
+    # Kto ma najlepszą rangę w każdej metodzie?
+    candidates <- apply(current_mat, 2, which.min)
+    freq_table <- table(candidates)
 
-  for (obecna_pozycja in 1:n) {
-    # Pobieramy rangi tylko dla dostepnych alternatyw (reszte zamieniamy na Inf)
-    obecna_macierz <- macierz_rang
-    obecna_macierz[!dostepne, ] <- Inf
+    max_votes <- max(freq_table)
+    winners <- as.numeric(names(freq_table)[freq_table == max_votes])
 
-    # Kto ma najlepszą (najniższą) rangę w każdej metodzie?
-    najlepszy_r1 <- which.min(obecna_macierz[, 1])
-    najlepszy_r2 <- which.min(obecna_macierz[, 2])
-    najlepszy_r3 <- which.min(obecna_macierz[, 3])
-
-    kandydaci <- c(najlepszy_r1, najlepszy_r2, najlepszy_r3)
-
-    # Głosowanie większościowe (kto pojawia się najczęściej?)
-    tabela_czestosci <- table(kandydaci)
-    zwyciezca_idx <- as.numeric(names(tabela_czestosci)[which.max(tabela_czestosci)])
-
-    # Obsługa remisu (gdy każdy kandydat jest inny: 3 różne wskazania)
-    if (length(tabela_czestosci) == 3) {
-      c1 <- najlepszy_r1; c2 <- najlepszy_r2; c3 <- najlepszy_r3
-
-      # Sprawdzamy "kto lepszy od kogo" w parach (Head-to-Head)
-      c1_wygrane <- sum(macierz_rang[c1, ] < macierz_rang[c2, ]) +
-        sum(macierz_rang[c1, ] < macierz_rang[c3, ])
-      c2_wygrane <- sum(macierz_rang[c2, ] < macierz_rang[c1, ]) +
-        sum(macierz_rang[c2, ] < macierz_rang[c3, ])
-      c3_wygrane <- sum(macierz_rang[c3, ] < macierz_rang[c1, ]) +
-        sum(macierz_rang[c3, ] < macierz_rang[c2, ])
-
-      wygrane <- c(c1_wygrane, c2_wygrane, c3_wygrane)
-      if (which.max(wygrane) == 1) zwyciezca_idx <- c1
-      else if (which.max(wygrane) == 2) zwyciezca_idx <- c2
-      else zwyciezca_idx <- c3
+    if (length(winners) == 1) {
+      winner_idx <- winners
+    } else {
+      # Remis: wybierz tego z najmniejszą sumą rang
+      sums <- rowSums(rank_mat[winners, , drop = FALSE])
+      winner_idx <- winners[which.min(sums)]
     }
 
-    # Przypisz pozycje i oznacz jako niedostepnego
-    finalny_ranking[zwyciezca_idx] <- obecna_pozycja
-    dostepne[zwyciezca_idx] <- FALSE
+    final_rank[winner_idx] <- current_position
+    available[winner_idx] <- FALSE
   }
 
-  return(finalny_ranking)
+  return(final_rank)
 }
 
-#' @title Rozmyty Meta-Ranking
-#' @description
-#' Agreguje wyniki z metod Fuzzy VIKOR, TOPSIS i WASPAS, aby stworzyć
-#' jeden, robustny ranking konsensusu.
+#' @title Rozmyty Meta-Ranking (5 Metod)
+#' @description Agreguje wyniki: VIKOR, TOPSIS, WASPAS, MULTIMOORA, PROMETHEE.
 #'
-#' @param macierz_decyzyjna Rozmyta macierz danych.
-#' @param typy_kryteriow Wektor typów ("min", "max").
-#' @param wagi (Opcjonalnie) Wagi kryteriów.
-#' @param bwm_najlepsze (Opcjonalnie) Wektor BWM Best-to-Others.
-#' @param bwm_najgorsze (Opcjonalnie) Wektor BWM Others-to-Worst.
-#' @param lambda Parametr dla WASPAS (domyślnie 0.5).
-#' @param v Parametr dla VIKOR (domyślnie 0.5).
+#' @param decision_mat Rozmyta macierz decyzyjna.
+#' @param criteria_types Wektor typów kryteriów ("min", "max").
+#' @param weights Wektor wag (opcjonalny).
+#' @param preference_params Ramka parametrów dla PROMETHEE (opcjonalna).
+#' @param bwm_best,bwm_worst Parametry BWM.
+#' @param lambda Parametr WASPAS.
+#' @param v Parametr VIKOR.
 #'
-#' @return Lista zawierająca ramkę danych z porównaniem rankingów oraz macierz korelacji.
-#' @importFrom RankAggreg BruteAggreg RankAggreg
-#' @importFrom stats cor
 #' @export
-rozmyty_meta_ranking <- function(macierz_decyzyjna,
-                                 typy_kryteriow,
-                                 wagi = NULL,
-                                 bwm_najlepsze = NULL,
-                                 bwm_najgorsze = NULL,
-                                 lambda = 0.5,
-                                 v = 0.5) {
+fuzzy_meta_ranking <- function(decision_mat,
+                               criteria_types,
+                               weights = NULL,
+                               preference_params = NULL,
+                               bwm_best = NULL,
+                               bwm_worst = NULL,
+                               lambda = 0.5,
+                               v = 0.5) {
 
-  # 1. Sprawdzenie wag (jesli brak BWM i brak wag recznych -> licz Entropie)
-  if (is.null(wagi) && (is.null(bwm_najlepsze) || is.null(bwm_najgorsze))) {
-    message("Brak wag i parametrów BWM. Obliczam wagi metodą Entropii...")
-    wagi_surowe <- .calculate_entropy_weights(macierz_decyzyjna)
-    wagi <- wagi_surowe
+  # 1. Wagi (jeśli brak -> Entropia)
+  if (is.null(weights) && (is.null(bwm_best) || is.null(bwm_worst))) {
+    message("Brak wag. Obliczam Entropię...")
+    weights_raw <- .calculate_entropy_weights(decision_mat)
+    weights <- rep(weights_raw, each = 3)
   }
 
-  # 2. Uruchomienie poszczególnych metod
-  # Przygotowujemy liste argumentow wspolnych
-  args_baza <- list(decision_mat = macierz_decyzyjna, criteria_types = typy_kryteriow)
-
-  if (!is.null(wagi)) args_baza$weights <- wagi
-  if (!is.null(bwm_najlepsze)) {
-    args_baza$bwm_best <- bwm_najlepsze
-    args_baza$bwm_worst <- bwm_najgorsze
-    # Pobieramy nazwy kryteriow z atrybutu macierzy, zeby BWM zadzialal
-    args_baza$bwm_criteria <- attr(macierz_decyzyjna, "nazwy_kryteriow")
+  # Domyślne parametry PROMETHEE (Linear, q=0, p=2)
+  if (is.null(preference_params)) {
+    n_crit <- ncol(decision_mat) / 3
+    preference_params <- data.frame(
+      Type = rep("linear", n_crit),
+      q = rep(0, n_crit),
+      p = rep(2, n_crit),
+      s = rep(NA, n_crit),
+      Role = rep("max", n_crit)
+    )
+    for (j in 1:n_crit) {
+      preference_params$Role[j] <- criteria_types[(j - 1) * 3 + 1]
+    }
   }
-
-  # VIKOR
-  args_vikor <- c(args_baza, list(v = v))
-  res_vikor <- do.call(fuzzy_vikor, args_vikor)
-
-  # TOPSIS
-  res_topsis <- do.call(fuzzy_topsis, args_baza)
-
-  # WASPAS
-  args_waspas <- c(args_baza, list(lambda = lambda))
-  res_waspas <- do.call(fuzzy_waspas, args_waspas)
-
-  # 3. Ekstrakcja Rankingów (same wektory liczb całkowitych)
-  r_vikor <- res_vikor$results$Ranking
-  r_topsis <- res_topsis$Ranking
-  r_waspas <- res_waspas$Ranking
-  # 4. Agregacja Rankingów
-  # A. Suma Rang (Im mniej tym lepiej)
-  suma_pkt <- r_vikor + r_topsis + r_waspas
-  ranking_suma <- rank(suma_pkt, ties.method = "first")
-
-  # B. Teoria Dominacji
-  ranking_dominacja <- .oblicz_ranking_dominacji(r_vikor, r_topsis, r_waspas)
-
-  # C. RankAggreg (Algorytm Brute Force)
-  # RankAggreg wymaga listy uporządkowanych indeksów, a nie wektora rang!
-  macierz_dla_ra <- rbind(
-    order(r_vikor),
-    order(r_topsis),
-    order(r_waspas)
+  # 2. Uruchomienie Metod
+  args_base <- list(
+    decision_mat = decision_mat,
+    criteria_types = criteria_types
   )
 
-  n_alt <- nrow(macierz_decyzyjna)
+  if (!is.null(weights)) args_base$weights <- weights
 
-  # Jeśli mało alternatyw (<10), używamy Brute Force (dokładny).
-  # Jeśli dużo, używamy Algorytmu Aggreg (przybliżony, ale szybszy).
+  if (!is.null(bwm_best)) {
+    args_base$bwm_best <- bwm_best
+    args_base$bwm_worst <- bwm_worst
+  }
+
+  # VIKOR, TOPSIS, WASPAS
+  res_vikor <- do.call(fuzzy_vikor, c(args_base, list(v = v)))
+  res_topsis <- do.call(fuzzy_topsis, args_base)
+  res_waspas <- do.call(fuzzy_waspas, c(args_base, list(lambda = lambda)))
+
+  # MULTIMOORA
+  res_mm <- do.call(rozmyty_multimoora, args_base)
+
+  # PROMETHEE (wymaga innej listy argumentów)
+  args_prom <- args_base
+  args_prom$criteria_types <- NULL  # PROMETHEE bierze role z preference_params
+  args_prom$preference_params <- preference_params
+  res_prom <- do.call(rozmyty_promethee, args_prom)
+  # 3. Zestawienie Wyników
+  rank_matrix <- cbind(
+    res_vikor$results$Ranking,
+    res_topsis$Ranking,
+    res_waspas$Ranking,
+    res_mm$results$Final_Ranking,
+    res_prom$results$Ranking
+  )
+
+  colnames(rank_matrix) <- c("VIKOR", "TOPSIS", "WASPAS", "MMOORA", "PROMETHEE")
+
+  # 4. Agregacja
+  # A. Suma
+  rank_sum <- rank(rowSums(rank_matrix), ties.method = "first")
+
+  # B. Dominacja
+  rank_dom <- calculate_dominance_ranking(rank_matrix)
+
+  # C. RankAggreg
+  ra_input <- t(apply(rank_matrix, 2, order))  # Konwersja na listę indeksów
+  n_alt <- nrow(decision_mat)
+
   if (n_alt <= 10) {
-    ra_wynik <- RankAggreg::BruteAggreg(macierz_dla_ra, n_alt, distance = "Spearman", verbose = FALSE)
+    ra <- RankAggreg::BruteAggreg(ra_input, n_alt, distance = "Spearman")
   } else {
-    ra_wynik <- RankAggreg::RankAggreg(macierz_dla_ra, n_alt, method = "GA", distance = "Spearman", verbose = FALSE)
+    ra <- RankAggreg::RankAggreg(ra_input, n_alt, method = "GA",
+                                 distance = "Spearman", verbose = FALSE)
   }
 
-  # Konwersja wyniku RankAggreg (lista indeksów) na wektor rang
-  top_lista <- ra_wynik$top.list
-  wektor_ra <- numeric(n_alt)
-
-  # Mapowanie: top_lista[1] to indeks zwyciezcy -> dostaje range 1
-  for(pozycja in 1:n_alt) {
-    indeks_alternatywy <- as.numeric(top_lista[pozycja])
-    wektor_ra[indeks_alternatywy] <- pozycja
+  # Konwersja wyniku RA na wektor rang
+  rank_ra <- numeric(n_alt)
+  top_list <- ra$top.list
+  if (is.numeric(top_list)) {
+    for (i in 1:n_alt) rank_ra[top_list[i]] <- i
+  } else {
+    for (i in 1:n_alt) rank_ra[top_list[i]] <- i
   }
-
-  # 5. Zestawienie wyników
-  porownanie_df <- data.frame(
-    Alternatywa = 1:n_alt,
-    R_VIKOR = r_vikor,
-    R_TOPSIS = r_topsis,
-    R_WASPAS = r_waspas,
-    Meta_Suma = ranking_suma,
-    Meta_Dominacja = ranking_dominacja,
-    Meta_Agregacja = wektor_ra
+  # 5. Wynik końcowy
+  comp_df <- data.frame(
+    Alternative = rownames(decision_mat),
+    R_VIKOR = rank_matrix[, 1],
+    R_TOPSIS = rank_matrix[, 2],
+    R_WASPAS = rank_matrix[, 3],
+    R_MMOORA = rank_matrix[, 4],
+    R_PROMETHEE = rank_matrix[, 5],
+    Meta_Sum = rank_sum,
+    Meta_Dominance = rank_dom,
+    Meta_Aggreg = rank_ra
   )
 
-  # Macierz korelacji Spearmana (czy metody są zgodne?)
-  macierz_kor <- cor(porownanie_df[,-1], method = "spearman")
-
-  wynik <- list(
-    porownanie = porownanie_df,
-    korelacje = macierz_kor
-  )
-
-  return(wynik)
+  return(list(
+    comparison = comp_df,
+    correlations = cor(comp_df[, -1], method = "spearman")
+  ))
 }
