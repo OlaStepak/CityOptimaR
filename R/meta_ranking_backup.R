@@ -61,7 +61,7 @@ fuzzy_meta_ranking <- function(decision_mat,
   if (is.null(weights) && (is.null(bwm_best) || is.null(bwm_worst))) {
     message("Brak wag. Obliczam Entropię...")
     weights_raw <- .calculate_entropy_weights(decision_mat)
-    weights <- weights_raw
+    weights <- rep(weights_raw, each = 3)
   }
 
   # Domyślne parametry PROMETHEE (Linear, q=0, p=2)

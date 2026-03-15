@@ -53,14 +53,12 @@
 #' @export
 calculate_bwm_weights <- function(criteria_names, best_to_others, others_to_worst) {
 
-  # 1. Validation and Model Building
   data <- .validate_bwm_data(best_to_others, others_to_worst, criteria_names)
   consistency <- .check_consistency(data)
 
   n_vars <- length(best_to_others) + 1 # Weights + ksi
   ksi_idx <- n_vars
 
-  # Basic Constraints: Sum weights = 1, weights >= 0
   lhs_sum <- c(rep(1, n_vars - 1), 0)
   constraints <- list(
     list(lhs = lhs_sum, dir = "==", rhs = 1)
@@ -106,7 +104,6 @@ calculate_bwm_weights <- function(criteria_names, best_to_others, others_to_wors
     }
   }
 
-  # 2. Solver Setup
   mat_lhs <- t(sapply(constraints, function(x) x$lhs))
   vec_dir <- sapply(constraints, function(x) x$dir)
   vec_rhs <- unlist(sapply(constraints, function(x) x$rhs))
@@ -117,7 +114,6 @@ calculate_bwm_weights <- function(criteria_names, best_to_others, others_to_wors
 
   res <- Rglpk::Rglpk_solve_LP(objective, mat_lhs, vec_dir, vec_rhs, max = FALSE)
 
-  # 3. Process Results
   weights <- res$solution[1:(n_vars - 1)]
   ksi_val <- res$solution[n_vars]
 

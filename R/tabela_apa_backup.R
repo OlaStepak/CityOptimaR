@@ -17,12 +17,15 @@ tabela_apa <- function(x, tytul = NULL) {
 tabela_apa.fuzzy_vikor_res <- function(x, tytul = "Wyniki metody Fuzzy VIKOR") {
   df <- x$results
 
+  # Formatowanie nazw kolumn dla czytelnika
   names(df) <- c("Alternatywa", "S (Grupa)", "R (Żal)", "Q (Kompromis)", "Ranking")
 
+  # Zaokrąglenia
   df$`S (Grupa)` <- round(df$`S (Grupa)`, 3)
   df$`R (Żal)` <- round(df$`R (Żal)`, 3)
   df$`Q (Kompromis)` <- round(df$`Q (Kompromis)`, 4)
 
+  # Tworzenie tabeli
   rempsyc::nice_table(
     df,
     title = c("Tabela 1", tytul),
@@ -32,7 +35,9 @@ tabela_apa.fuzzy_vikor_res <- function(x, tytul = "Wyniki metody Fuzzy VIKOR") {
 
 #' @export
 tabela_apa.data.frame <- function(x, tytul = "Wyniki MCDA") {
+  # Obsługa zwykłych data.frame (TOPSIS, WASPAS)
 
+  # Sprawdź czy to TOPSIS (ma kolumnę Score)
   if ("Score" %in% names(x)) {
     names(x) <- c("Alternatywa", "Wynik (CC)", "Ranking")
     x$`Wynik (CC)` <- round(x$`Wynik (CC)`, 4)
@@ -55,10 +60,12 @@ tabela_apa.data.frame <- function(x, tytul = "Wyniki MCDA") {
 
 #' @export
 tabela_apa.list <- function(x, tytul = "Meta-Ranking (Konsensus)") {
+  # Obsługa Meta-Rankingu
   if(is.null(x$porownanie)) stop("To nie jest obiekt meta-rankingu.")
 
   df <- x$porownanie
 
+  # Usuwamy "podłogi" z nazw kolumn (np. Meta_Suma -> Meta Suma)
   names(df) <- gsub("_", " ", names(df))
 
   rempsyc::nice_table(
@@ -76,6 +83,9 @@ zapisz_tabele <- function(tabela, sciezka) {
   flextable::save_as_docx(tabela, path = sciezka)
   message("Tabela zapisana w: ", sciezka)
 }
+# ============================================================
+# MULTIMOORA & PROMETHEE APA TABLES
+# ============================================================
 
 #' @export
 tabela_apa.rozmyty_multimoora_wynik <- function(x, tytul = "Wyniki MULTIMOORA") {

@@ -14,29 +14,38 @@ plot.fuzzy_vikor_res <- function(x, ...) {
 
   df <- x$results
 
+  # Prepare data for plotting
   df$Label <- paste("Alt", df$Alternative)
 
+  # Categorize by ranking: Top 3 vs Others
   df$Group <- ifelse(df$Ranking <= 3, "Top 3", "Others")
 
+  # Size Logic: We want Better Rank (Lower Q) to look significant.
+  # Let's use inverted ranking for size or normalized inverted Q.
+  # Simple visual approach: Size = (MaxRank + 1) - Rank
   max_rank <- max(df$Ranking)
   df$PlotSize <- (max_rank + 1) - df$Ranking
 
   s_mean <- mean(df$Def_S, na.rm = TRUE)
   r_mean <- mean(df$Def_R, na.rm = TRUE)
 
+  # Calculate Plot Limits with padding
   x_range <- range(df$Def_S)
   y_range <- range(df$Def_R)
 
   p <- ggplot(df, aes(x = Def_S, y = Def_R)) +
+    # Quadrant lines
     geom_vline(xintercept = s_mean, linetype = "dashed", color = "grey60") +
     geom_hline(yintercept = r_mean, linetype = "dashed", color = "grey60") +
 
+    # Bubbles
     geom_point(aes(size = PlotSize, fill = Group),
                shape = 21,
                color = "black",
                stroke = 0.8,
                alpha = 0.85) +
 
+    # Text Labels
     geom_text_repel(aes(label = Label),
                     size = 3.5,
                     box.padding = 0.5,
@@ -46,6 +55,8 @@ plot.fuzzy_vikor_res <- function(x, ...) {
     scale_fill_manual(values = c("Top 3" = "#4CAF50", "Others" = "#E0E0E0")) +
     scale_size_continuous(range = c(4, 12), name = "Rank Strength") +
 
+    # VIKOR Logic: Ideal is (0,0) or bottom-left.
+    # Usually we leave axes as is, but users should know Lower is Better.
 
     labs(
       title = "Fuzzy VIKOR Compromise Analysis",
@@ -67,8 +78,12 @@ plot.fuzzy_vikor_res <- function(x, ...) {
   return(p)
 }
 
+# Fix for R CMD check global variable warnings
 utils::globalVariables(c("Def_S", "Def_R", "PlotSize", "Group", "Label", "Alternative"))
 
+# ============================================================
+# MULTIMOORA & PROMETHEE PLOTS
+# ============================================================
 
 #' Mapa Strategiczna MULTIMOORA
 #' @export
