@@ -2,13 +2,12 @@
 % Please edit documentation in R/meta_ranking.R
 \name{fuzzy_meta_ranking}
 \alias{fuzzy_meta_ranking}
-\title{Rozmyty Meta-Ranking (5 Metod)}
+\title{Rozmyty Meta-Ranking}
 \usage{
 fuzzy_meta_ranking(
   decision_mat,
   criteria_types,
   weights = NULL,
-  preference_params = NULL,
   bwm_best = NULL,
   bwm_worst = NULL,
   lambda = 0.5,
@@ -16,20 +15,25 @@ fuzzy_meta_ranking(
 )
 }
 \arguments{
-\item{decision_mat}{Rozmyta macierz decyzyjna.}
+\item{decision_mat}{Rozmyta macierz decyzyjna (m x 3n).}
 
-\item{criteria_types}{Wektor typów kryteriów ("min", "max").}
+\item{criteria_types}{Wektor typow kryteriow ("min" lub "max").}
 
 \item{weights}{Wektor wag (opcjonalny).}
 
-\item{preference_params}{Ramka parametrów dla PROMETHEE (opcjonalna).}
+\item{bwm_best}{Wektor BWM dla najlepszego kryterium.}
 
-\item{bwm_best, bwm_worst}{Parametry BWM.}
+\item{bwm_worst}{Wektor BWM dla najgorszego kryterium.}
 
-\item{lambda}{Parametr WASPAS.}
+\item{lambda}{Parametr WASPAS (domyslnie 0.5).}
 
-\item{v}{Parametr VIKOR.}
+\item{v}{Parametr VIKOR (domyslnie 0.5).}
+}
+\value{
+Lista z comparison, topsis_ranking i correlations.
 }
 \description{
-Agreguje wyniki: VIKOR, TOPSIS, WASPAS, MULTIMOORA, PROMETHEE.
+Agreguje wyniki trzech metod MCDA: Fuzzy TOPSIS (metoda referencyjna),
+Fuzzy VIKOR oraz Fuzzy WASPAS. TOPSIS stanowi glowna metode rankingowa pakietu
+CityOptimaR ze wzgledu na intuicyjnosc i odpornosc w problemach wyboru miasta.
 }

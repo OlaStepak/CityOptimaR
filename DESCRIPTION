@@ -1,28 +1,30 @@
 Package: CityOptimaR
 Type: Package
-Title: Wielokryterialna Analiza Decyzyjna w Środowisku Rozmytym z BWM
+Title: Wielokryterialna Analiza Decyzyjna Miast w Srodowisku Rozmytym
 Version: 0.1.0
 Authors@R: c(
     person(
-      "Aleksandra", "Stępak",
-      email = "aleksandrastepak.stepak@student.uj.edu.pl",
-      role = c("aut", "cre")
+      'Aleksandra', 'Stepak',
+      email = 'aleksandrastepak.stepak@student.uj.edu.pl',
+      role = c('aut', 'cre')
     )
   )
-Description: Pakiet implementuje metody MCDA (TOPSIS, VIKOR, WASPAS) w środowisku
-    rozmytym (Fuzzy Logic). Zawiera moduł automatycznego przetwarzania danych ankietowych
-    na liczby rozmyte oraz solver dla metody Best-Worst Method (BWM) do wyznaczania wag kryteriów.
+Description: Pakiet implementuje rozmyte metody wielokryterialnej analizy decyzyjnej
+    (Fuzzy MCDA) wspomagajace wybor miasta do zamieszkania na podstawie kryteriow
+    jakosci zycia. Glowna metoda rankingowa jest Fuzzy TOPSIS, uzupelniona o Fuzzy VIKOR
+    i Fuzzy WASPAS. Pakiet zawiera modul automatycznej fuzzyfikacji danych,
+    solver metody Best-Worst Method (BWM) do wyznaczania wag kryteriow,
+    agregacje wynikow w postaci meta-rankingu oraz wizualizacje wynikow.
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3
-Depends: 
+Depends:
     R (>= 3.5)
 Imports:
     Rglpk,
     ggplot2,
     ggrepel,
-    RankAggreg,
     stats,
     rempsyc,
     flextable

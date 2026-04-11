@@ -7,14 +7,10 @@
 tabela_apa(x, tytul = NULL)
 }
 \arguments{
-\item{x}{Obiekt wynikowy z funkcji pakietu (np. `fuzzy_vikor_res`).}
+\item{x}{Obiekt wynikowy z funkcji pakietu.}
 
-\item{tytul}{Opcjonalny tytuł tabeli.}
-}
-\value{
-Obiekt klasy `flextable` gotowy do druku lub zapisu do Worda.
+\item{tytul}{Opcjonalny tytul tabeli.}
 }
 \description{
-Funkcja przekształca wyniki analizy MCDA (TOPSIS, VIKOR, WASPAS, Meta-Ranking)
-w sformatowaną tabelę zgodną ze standardem APA, gotową do publikacji w Wordzie.
+Funkcja przeksztalca wyniki analizy MCDA w tabele zgodna ze standardem APA.
 }

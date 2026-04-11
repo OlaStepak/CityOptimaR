@@ -2,15 +2,15 @@
 % Please edit documentation in R/tabela_apa.R
 \name{zapisz_tabele}
 \alias{zapisz_tabele}
-\title{Zapisz tabelę do Worda}
+\title{Zapisz tabele do Worda}
 \usage{
 zapisz_tabele(tabela, sciezka)
 }
 \arguments{
-\item{tabela}{Obiekt flextable (wynik funkcji tabela_apa)}
+\item{tabela}{Obiekt flextable}
 
-\item{sciezka}{Ścieżka do pliku wyjściowego (np. "wyniki.docx")}
+\item{sciezka}{Sciezka do pliku wyjsciowego}
 }
 \description{
-Pomocnicza funkcja do zapisu tabeli flextable do pliku .docx
+Zapisuje tabele flextable do pliku .docx
 }

@@ -7,15 +7,16 @@
 \method{plot}{fuzzy_vikor_res}(x, ...)
 }
 \arguments{
-\item{x}{An object of class `fuzzy_vikor_res` returned by the `fuzzy_vikor()` function.}
+\item{x}{Obiekt klasy fuzzy_vikor_res zwrocony przez funkcje fuzzy_vikor().}
 
-\item{...}{Additional arguments.}
+\item{...}{Dodatkowe argumenty.}
 }
 \value{
-A ggplot object.
+Obiekt ggplot.
 }
 \description{
-Visualizes the VIKOR results using a bubble chart.
-The X-axis represents Group Utility (S), the Y-axis represents Individual Regret (R).
-Bubble size is inversely proportional to the Compromise Solution (Q) - smaller Q (better rank) = larger bubble.
+Wizualizuje wyniki metody Fuzzy VIKOR jako wykres babelkowy.
+Os X reprezentuje uzytecznosc grupowa (S), os Y indywidualny zal (R).
+Rozmiar babla jest odwrotnie proporcjonalny do wskaznika kompromisu Q -
+im mniejsze Q (lepszy ranking), tym wiekszy babel.
 }

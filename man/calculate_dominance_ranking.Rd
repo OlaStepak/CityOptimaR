@@ -7,6 +7,6 @@
 calculate_dominance_ranking(rank_mat)
 }
 \description{
-Funkcja pomocnicza do konsensusu.
+Teoria Dominacji dla Rankingu
 }
 \keyword{internal}

@@ -125,6 +125,7 @@ utils::globalVariables(c("City", "Country"))
 #'   If NULL, each row is treated as separate alternative.
 #' @param aggregation_function Function used to merge expert opinions (default: mean)
 #' @return Matrix of dimensions (m x 3n), where m is number of alternatives
+#' @importFrom stats aggregate
 #' @export
 #' @examples
 #' \dontrun{

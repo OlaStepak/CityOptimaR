@@ -1,95 +1,58 @@
 #' @title Generowanie Tabeli APA
-#' @description
-#' Funkcja przekształca wyniki analizy MCDA (TOPSIS, VIKOR, WASPAS, Meta-Ranking)
-#' w sformatowaną tabelę zgodną ze standardem APA, gotową do publikacji w Wordzie.
-#'
-#' @param x Obiekt wynikowy z funkcji pakietu (np. `fuzzy_vikor_res`).
-#' @param tytul Opcjonalny tytuł tabeli.
-#' @return Obiekt klasy `flextable` gotowy do druku lub zapisu do Worda.
+#' @description Funkcja przeksztalca wyniki analizy MCDA w tabele zgodna ze standardem APA.
+#' @param x Obiekt wynikowy z funkcji pakietu.
+#' @param tytul Opcjonalny tytul tabeli.
 #' @importFrom rempsyc nice_table
 #' @importFrom flextable autofit save_as_docx
 #' @export
 tabela_apa <- function(x, tytul = NULL) {
-  UseMethod("tabela_apa")
+  UseMethod('tabela_apa')
 }
 
 #' @export
-tabela_apa.fuzzy_vikor_res <- function(x, tytul = "Wyniki metody Fuzzy VIKOR") {
+tabela_apa.fuzzy_vikor_res <- function(x, tytul = 'Wyniki metody Fuzzy VIKOR') {
   df <- x$results
-
-  names(df) <- c("Alternatywa", "S (Grupa)", "R (Żal)", "Q (Kompromis)", "Ranking")
-
-  df$`S (Grupa)` <- round(df$`S (Grupa)`, 3)
-  df$`R (Żal)` <- round(df$`R (Żal)`, 3)
-  df$`Q (Kompromis)` <- round(df$`Q (Kompromis)`, 4)
-
-  rempsyc::nice_table(
-    df,
-    title = c("Tabela 1", tytul),
-    note = c("Uwaga. S: użyteczność grupy, R: indywidualny żal, Q: indeks kompromisu (im mniej tym lepiej).")
+  names(df) <- c('Alternatywa', 'S (Grupa)', 'R (Zal)', 'Q (Kompromis)', 'Ranking')
+  df[['S (Grupa)']] <- round(df[['S (Grupa)']], 3)
+  df[['R (Zal)']] <- round(df[['R (Zal)']], 3)
+  df[['Q (Kompromis)']] <- round(df[['Q (Kompromis)']], 4)
+  rempsyc::nice_table(df,
+    title = c('Tabela 1', tytul),
+    note = 'S: uzytecznosc grupy, R: indywidualny zal, Q: indeks kompromisu (im mniej tym lepiej).'
   )
 }
 
 #' @export
-tabela_apa.data.frame <- function(x, tytul = "Wyniki MCDA") {
-
-  if ("Score" %in% names(x)) {
-    names(x) <- c("Alternatywa", "Wynik (CC)", "Ranking")
-    x$`Wynik (CC)` <- round(x$`Wynik (CC)`, 4)
-
-    tabela <- rempsyc::nice_table(
-      x,
-      title = c("Tabela 2", tytul),
-      note = c("Uwaga. CC - Coefficient of Closeness. Im wyższa wartość, tym lepsza alternatywa.")
+tabela_apa.data.frame <- function(x, tytul = 'Wyniki Fuzzy TOPSIS') {
+  if ('Score' %in% names(x)) {
+    names(x) <- c('Alternatywa', 'Wynik (CC)', 'Ranking')
+    x[['Wynik (CC)']] <- round(x[['Wynik (CC)']], 4)
+    rempsyc::nice_table(x,
+      title = c('Tabela 2', tytul),
+      note = 'CC - Wspolczynnik Bliskosci. Im wyzsza wartosc, tym miasto blizsze idealu.'
     )
   } else {
-    # Domyślne formatowanie dla innych tabel
-    tabela <- rempsyc::nice_table(
-      x,
-      title = c("Tabela", tytul)
-    )
+    rempsyc::nice_table(x, title = c('Tabela', tytul))
   }
-
-  return(tabela)
 }
 
 #' @export
-tabela_apa.list <- function(x, tytul = "Meta-Ranking (Konsensus)") {
-  if(is.null(x$porownanie)) stop("To nie jest obiekt meta-rankingu.")
-
-  df <- x$porownanie
-
-  names(df) <- gsub("_", " ", names(df))
-
-  rempsyc::nice_table(
-    df,
-    title = c("Tabela 3", tytul),
-    note = c("Zestawienie rang uzyskanych różnymi metodami oraz rankingi konsensusu.")
+tabela_apa.list <- function(x, tytul = 'Meta-Ranking (Konsensus)') {
+  if (is.null(x$comparison)) stop('To nie jest obiekt meta-rankingu.')
+  df <- x$comparison
+  names(df) <- gsub('_', ' ', names(df))
+  rempsyc::nice_table(df,
+    title = c('Tabela 3', tytul),
+    note = 'Zestawienie rang metod TOPSIS, VIKOR, WASPAS oraz meta-rankingu konsensusu.'
   )
 }
-#' @title Zapisz tabelę do Worda
-#' @description Pomocnicza funkcja do zapisu tabeli flextable do pliku .docx
-#' @param tabela Obiekt flextable (wynik funkcji tabela_apa)
-#' @param sciezka Ścieżka do pliku wyjściowego (np. "wyniki.docx")
+
+#' @title Zapisz tabele do Worda
+#' @description Zapisuje tabele flextable do pliku .docx
+#' @param tabela Obiekt flextable
+#' @param sciezka Sciezka do pliku wyjsciowego
 #' @export
 zapisz_tabele <- function(tabela, sciezka) {
   flextable::save_as_docx(tabela, path = sciezka)
-  message("Tabela zapisana w: ", sciezka)
-}
-
-#' @export
-tabela_apa.rozmyty_multimoora_wynik <- function(x, tytul = "Wyniki MULTIMOORA") {
-  df <- x$results[, c("Alternative", "RS_Ranking", "RP_Ranking", "FMF_Ranking", "Final_Ranking")]
-  names(df) <- c("Alternatywa", "Rank Ratio", "Rank Ref.Point", "Rank Mult.Form", "MULTIMOORA")
-
-  rempsyc::nice_table(df, title = c("Tabela", tytul))
-}
-
-#' @export
-tabela_apa.rozmyty_promethee_wynik <- function(x, tytul = "Wyniki PROMETHEE II") {
-  df <- x$results
-  df$Phi_Net <- round(df$Phi_Net, 3)
-  names(df) <- c("Alternatywa", "Phi+ (Leaving)", "Phi- (Entering)", "Phi Net", "Ranking")
-
-  rempsyc::nice_table(df, title = c("Tabela", tytul))
+  message('Tabela zapisana w: ', sciezka)
 }
